@@ -1,0 +1,118 @@
+name: Build Blender for Linux and Archive
+
+on:
+  push:
+    branches:
+      - main # Or your default branch, e.g., 'master', 'blender-2.93-lts', etc.
+  workflow_dispatch: # Allows manual triggering of the workflow
+
+jobs:
+  build-and-archive:
+    runs-on: ubuntu-latest # Using ubuntu-latest as a base, then installing Debian 12 tools/dependencies
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true # Important for Blender's dependencies
+
+      - name: Set up Debian 12 environment and install build dependencies
+        run: |
+          # Update package list and install essential tools
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            git \
+            libx11-dev \
+            libxxf86vm-dev \
+            libxcursor-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libtiff-dev \
+            libopenjp2-7-dev \
+            libavcodec-dev \
+            libavdevice-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libswscale-dev \
+            libsdl2-dev \
+            libopenal-dev \
+            libsndfile1-dev \
+            libpulse-dev \
+            libxmu-dev \
+            libxpm-dev \
+            libxfixes-dev \
+            libxinerama-dev \
+            libxcomposite-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libdecor-0-dev \
+            libvulkan-dev \
+            libtbb-dev \
+            libjemalloc-dev \
+            libimath-dev \
+            libopenexr-dev \
+            libboost-all-dev \
+            libgmp-dev \
+            libmpfr-dev \
+            libopencolorio-dev \
+            libopenimageio-dev \
+            libusd-dev \
+            libfmt-dev \
+            libtiff5-dev \
+            libwebp-dev \
+            liblzma-dev \
+            libzstd-dev \
+            libaom-dev \
+            libheif-dev \
+            libnuma-dev \
+            libxml2-dev \
+            libyaml-cpp-dev \
+            libtbb-dev \
+            libomp-dev \
+            python3 \
+            python3-pip \
+            python3-dev \
+            # Install 7zip for archiving
+            p7zip-full
+
+          # You might need to install specific Python packages if Blender's build system requires them
+          # pip3 install --upgrade pip
+          # pip3 install numpy
+
+      - name: Configure Blender build
+        run: |
+          mkdir build
+          cd build
+          # Use 'cmake ..' to configure the build. Adjust options as needed.
+          # For example, -DWITH_PYTHON_MODULE=OFF if you don't need Python scripting.
+          # -DCMAKE_BUILD_TYPE=Release is recommended for optimized builds.
+          cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_CODEC_FFMPEG=ON
+
+      - name: Build Blender
+        run: |
+          cd build
+          # Use -j$(nproc) to utilize all available CPU cores for faster compilation
+          make -j$(nproc)
+
+      - name: Archive entire build directory with 7z
+        run: |
+          # Navigate to the root of the repository
+          cd ${{ github.workspace }}
+          # Create the 7z archive of the 'build' directory
+          # The archive will be named blender-build-[commit_sha].7z
+          7z a blender-build-${{ github.sha }}.7z build/
+
+      - name: Upload 7z artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender-linux-build-${{ github.sha }}
+          path: blender-build-${{ github.sha }}.7z
+          retention-days: 7 # Keep the artifact for 7 days
