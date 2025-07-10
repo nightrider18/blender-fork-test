@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-and-archive:
-    runs-on: ubuntu-latest # Using ubuntu-latest as a base, then installing Debian 12 tools/dependencies
+    runs-on: debian-12 # Using ubuntu-latest as a base, then installing Debian 12 tools/dependencies
 
     steps:
       - name: Checkout repository
