@@ -34,7 +34,7 @@ jobs:
           libtiff-dev \
           libopenexr-dev \
           libfftw3-dev \
-          libopenjpeg-dev \
+          libopenjp2-7-dev \
           libopenal-dev \
           libalut-dev \
           libvorbis-dev \
