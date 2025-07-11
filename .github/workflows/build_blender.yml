@@ -1,118 +1,83 @@
 name: Build Blender for Linux and Archive
 
 on:
+  workflow_dispatch:
   push:
     branches:
-      - main # Or your default branch, e.g., 'master', 'blender-2.93-lts', etc.
-  workflow_dispatch: # Allows manual triggering of the workflow
+      - main
+      - master
 
 jobs:
-  build-and-archive:
-    runs-on: ubuntu-22.04 # Changed to a specific Ubuntu LTS version for better Debian 12 compatibility
+  build-linux:
+    runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: true # Important for Blender's dependencies
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Debian 12 environment and install build dependencies
-        run: |
-          # Update package list and install essential tools
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            cmake \
-            git \
-            libx11-dev \
-            libxxf86vm-dev \
-            libxcursor-dev \
-            libxrandr-dev \
-            libxi-dev \
-            libgl1-mesa-dev \
-            libglu1-mesa-dev \
-            libfontconfig1-dev \
-            libfreetype6-dev \
-            libjpeg-dev \
-            libpng-dev \
-            libtiff-dev \
-            libopenjp2-7-dev \
-            libavcodec-dev \
-            libavdevice-dev \
-            libavformat-dev \
-            libavutil-dev \
-            libswscale-dev \
-            libsdl2-dev \
-            libopenal-dev \
-            libsndfile1-dev \
-            libpulse-dev \
-            libxmu-dev \
-            libxpm-dev \
-            libxfixes-dev \
-            libxinerama-dev \
-            libxcomposite-dev \
-            libxkbcommon-dev \
-            libwayland-dev \
-            libdecor-0-dev \
-            libvulkan-dev \
-            libtbb-dev \
-            libjemalloc-dev \
-            libimath-dev \
-            libopenexr-dev \
-            libboost-all-dev \
-            libgmp-dev \
-            libmpfr-dev \
-            libopencolorio-dev \
-            libopenimageio-dev \
-            libusd-dev \
-            libfmt-dev \
-            libtiff5-dev \
-            libwebp-dev \
-            liblzma-dev \
-            libzstd-dev \
-            libaom-dev \
-            libheif-dev \
-            libnuma-dev \
-            libxml2-dev \
-            libyaml-cpp-dev \
-            libtbb-dev \
-            libomp-dev \
-            python3 \
-            python3-pip \
-            python3-dev \
-            # Install 7zip for archiving
-            p7zip-full
+    - name: Set up dependencies (Ubuntu 22.04 / Debian 12 compatible)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          cmake \
+          ninja-build \
+          libx11-dev \
+          libxi-dev \
+          libxcursor-dev \
+          libxrandr-dev \
+          libxinerama-dev \
+          libglew-dev \
+          libgl1-mesa-dev \
+          libpng-dev \
+          libtiff-dev \
+          libopenexr-dev \
+          libfftw3-dev \
+          libopenjpeg-dev \
+          libopenal-dev \
+          libalut-dev \
+          libvorbis-dev \
+          libogg-dev \
+          libtheora-dev \
+          libssl-dev \
+          libsdl1.2-dev \
+          libfreetype6-dev \
+          libtbb-dev \
+          libboost-all-dev \
+          libjemalloc-dev \
+          libgmp-dev \
+          libmpfr-dev \
+          libpotrace-dev \
+          libspnav-dev \
+          libsdl2-dev \
+          libwayland-dev \
+          yasm \
+          wget \
+          python3 \
+          python3-dev \
+          python3-pip \
+          p7zip-full
 
-          # You might need to install specific Python packages if Blender's build system requires them
-          # pip3 install --upgrade pip
-          # pip3 install numpy
+    - name: Build Blender
+      run: |
+        mkdir build_linux
+        cd build_linux
+        cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release
+        ninja
 
-      - name: Configure Blender build
-        run: |
-          mkdir build
-          cd build
-          # Use 'cmake ..' to configure the build. Adjust options as needed.
-          # For example, -DWITH_PYTHON_MODULE=OFF if you don't need Python scripting.
-          # -DCMAKE_BUILD_TYPE=Release is recommended for optimized builds.
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_CODEC_FFMPEG=ON
+    - name: Prepare archive directory
+      run: |
+        mkdir -p blender-dist
+        cp -r build_linux/* blender-dist/
+        # Optionally include other files, e.g., scripts, configs, etc.
 
-      - name: Build Blender
-        run: |
-          cd build
-          # Use -j$(nproc) to utilize all available CPU cores for faster compilation
-          make -j$(nproc)
+    - name: Compress entire build directory with 7z
+      run: |
+        7z a blender-linux-build.7z ./blender-dist/*
 
-      - name: Archive entire build directory with 7z
-        run: |
-          # Navigate to the root of the repository
-          cd ${{ github.workspace }}
-          # Create the 7z archive of the 'build' directory
-          # The archive will be named blender-build-[commit_sha].7z
-          7z a blender-build-${{ github.sha }}.7z build/
-
-      - name: Upload 7z artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: blender-linux-build-${{ github.sha }}
-          path: blender-build-${{ github.sha }}.7z
-          retention-days: 7 # Keep the artifact for 7 days
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: blender-linux-build
+        path: blender-linux-build.7z
