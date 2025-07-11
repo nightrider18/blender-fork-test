@@ -1,0 +1,61 @@
+name: Archive Blender Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout forked repository
+      uses: actions/checkout@v4
+
+    - name: Cache build directory
+      id: cache-build
+      uses: actions/cache@v4
+      with:
+        path: ./build_linux
+        key: blender-build-${{ github.sha }}
+        restore-keys: |
+          blender-build-
+
+    - name: Check cache restoration
+      run: |
+        if [ "${{ steps.cache-build.outputs.cache-hit }}" == "true" ]; then
+          echo "Cache restored successfully"
+          ls -la build_linux || echo "build_linux directory not found despite cache hit"
+          if [ -d "build_linux/bin" ]; then
+            ls -la build_linux/bin
+          else
+            echo "build_linux/bin not found"
+          fi
+        else
+          echo "Cache miss: build_linux directory not available. Archiving may fail."
+        fi
+      shell: bash
+
+    - name: Install p7zip-full
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y p7zip-full
+      shell: bash
+
+    - name: Create 7z archive of build_linux directory
+      if: steps.cache-build.outputs.cache-hit == 'true' && exists('build_linux')
+      run: |
+        7z a blender-build-full.7z ./build_linux
+      shell: bash
+
+    - name: Upload full build archive
+      if: exists('blender-build-full.7z')
+      uses: actions/upload-artifact@v4
+      with:
+        name: blender-build-full-7z
+        path: ./blender-build-full.7z
